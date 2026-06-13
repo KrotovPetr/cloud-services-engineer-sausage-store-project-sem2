@@ -1,0 +1,66 @@
+{{- if .Values.mongodb.init.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-init
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    app: mongodb-init
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: mongodb-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mongodb-init
+        image: {{ .Values.mongodb.image | default "mongo:7.0" }}
+        env:
+          - name: MONGO_ROOT_USER
+            value: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_USERNAME | quote }}
+          - name: MONGO_ROOT_PASSWORD
+            value: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_PASSWORD | quote }}
+          - name: REPORT_DB
+            value: {{ .Values.mongodb.init.database | quote }}
+          - name: REPORT_USER
+            value: {{ .Values.mongodb.init.username | quote }}
+          - name: REPORT_PASSWORD
+            value: {{ .Values.mongodb.init.password | quote }}
+        command:
+          - sh
+          - -c
+          - |
+            set -e
+            # Дожидаемся готовности MongoDB
+            until mongosh "mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@mongodb:{{ .Values.mongodb.containerPort }}/admin" --quiet --eval 'db.runCommand({ ping: 1 })'; do
+              echo "Waiting for MongoDB..."
+              sleep 3
+            done
+            # Создаём пользователя и базу для отчётов (идемпотентно)
+            mongosh "mongodb://$MONGO_ROOT_USER:$MONGO_ROOT_PASSWORD@mongodb:{{ .Values.mongodb.containerPort }}/admin" --quiet --eval '
+              const dbName = process.env.REPORT_DB;
+              const user = process.env.REPORT_USER;
+              const pwd = process.env.REPORT_PASSWORD;
+              const target = db.getSiblingDB(dbName);
+              if (target.getUser(user)) {
+                target.updateUser(user, { pwd: pwd, roles: [{ role: "readWrite", db: dbName }] });
+                print("User updated");
+              } else {
+                target.createUser({ user: user, pwd: pwd, roles: [{ role: "readWrite", db: dbName }] });
+                print("User created");
+              }
+            '
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+{{- end }}
