@@ -29,6 +29,8 @@ frontend:
   nginxConf: nginx.conf
 
 backend:
+  vault:
+    enabled: false
   annotations:
     path: /actuator/prometheus
     port: "8080"
