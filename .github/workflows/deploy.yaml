@@ -116,11 +116,14 @@ jobs:
 
         - name: Deploy chart to Kubernetes
           # Финальный шаг - деплой чарта из Nexus в свой namespace
+          env:
+            # Поднимаем лимит запросов helm-клиента: в кластере много CRD,
+            # из-за чего discovery упирается в дефолтный rate limiter (burst 100)
+            HELM_BURST_LIMIT: "1000"
           run: |
             helm upgrade --install "${RELEASE_NAME}" nexus/${CHART_NAME} \
               --version "${CHART_VERSION}" \
               --namespace "${SAUSAGE_STORE_NAMESPACE}" \
               --set global.vault.vaultToken=${VAULT_TOKEN} \
-              --atomic \
-              --timeout 5m \
+              --timeout 10m \
               --wait
