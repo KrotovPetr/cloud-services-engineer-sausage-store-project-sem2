@@ -1,1 +1,6 @@
 .env
+
+# Локальный kubeconfig с токеном доступа к кластеру — НЕ коммитить
+kubeconfig.yaml
+kubeconfig
+*.kubeconfig

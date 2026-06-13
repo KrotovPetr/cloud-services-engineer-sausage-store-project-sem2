@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  # Позволяет запускать workflow вручную из вкладки Actions (кнопка Run workflow)
+  workflow_dispatch:
 
 env:
   NEXUS_HELM_REPO: ${{ secrets.NEXUS_HELM_REPO }}
